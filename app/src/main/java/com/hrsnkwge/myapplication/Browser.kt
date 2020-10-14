@@ -74,7 +74,6 @@ class Browser : AppCompatActivity(){
         override fun onPageFinished(view: WebView?, url: String?) {
             if (view != null) {
                 if(!current.equals("0"))mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
-                mywebView.loadUrl("javascript:(function() { " +"\$('li[data-control=\"next\"]').find('.page-link')[1].click()"+ "})()")
             }
         }
 
@@ -159,6 +158,7 @@ class Browser : AppCompatActivity(){
         }
 
         var xhrnum = 0
+        var last = "false"
 
         // console.log を Logcat に表示させます
         override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
@@ -169,10 +169,13 @@ class Browser : AppCompatActivity(){
                 )
                 current = consoleMessage.message()
                 if(!current.equals("0"))mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
-                if(current.equals("0")){
+                else if(current.equals("0")&&!last.equals("true")){
                     Log.d("Clicked","clicked")
-                    if(xhrnum<1)mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
+                    mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
+                    mywebView.loadUrl("javascript:(function() { " +"console.log(\$('li[data-control=\"next\"]').find('.page-link').eq(1).parent().hasClass('disabled'));"+ "})()")
                     mywebView.loadUrl("javascript:(function() { " +"\$('li[data-control=\"next\"]').find('.page-link')[1].click()"+ "})()")
+                }else if(current.equals("true")){
+                    last = "true"
                 }
 
             }
