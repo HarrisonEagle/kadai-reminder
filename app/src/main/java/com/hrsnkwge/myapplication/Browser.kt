@@ -2,6 +2,7 @@ package com.hrsnkwge.myapplication
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -15,12 +16,20 @@ import androidx.appcompat.app.AppCompatActivity
 import com.afollestad.materialdialogs.MaterialDialog
 import com.afollestad.materialdialogs.callbacks.onCancel
 import kotlinx.android.synthetic.main.browser.*
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
+import java.lang.Double.parseDouble
+import java.util.*
+import kotlin.concurrent.schedule
 
 
 class Browser : AppCompatActivity(){
     companion object{
         lateinit var mywebView:WebView
         var current = ""
+        var finished = false
     }
     @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("JavascriptInterface")
@@ -61,6 +70,7 @@ class Browser : AppCompatActivity(){
         }
         mywebView.webViewClient = CustomWebViewClient(this)
         mywebView.webChromeClient = CustomWebChromeClient(this)
+        mywebView.addJavascriptInterface(MyJavaScriptInterface(this), "HtmlViewer")
         mywebView.loadUrl("https://wsdmoodle.waseda.jp/my/")
 
 
@@ -71,9 +81,21 @@ class Browser : AppCompatActivity(){
     private class CustomWebViewClient internal constructor(private val activity: Browser) :
         WebViewClient() {
 
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            view?.post(Runnable {
+                if(view.url.equals("https://wsdmoodle.waseda.jp/my/")){
+                    Log.d("changed","changed")
+                    //if(!finished)view.loadUrl("javascript:(function() { " +"\$('HTML').bind('DOMSubtreeModified', function() {\$('a[aria-label=\"すべてフィルタオプション\"]').click();\$('li[data-control=\"next\"]').find('.page-link')[1].click();console.log(\$('li[data-control=\"next\"]').find('.page-link').eq(1).parent().hasClass('disabled')+''+\$('.icon.fa.fa-circle-o-notch.fa-spin.fa-fw:visible').length)});"+ "})()")
+                    if(!finished)view.loadUrl("javascript:(function() { " +"\$('HTML').bind('DOMSubtreeModified', function() {\$('li[data-control=\"next\"]').find('.page-link')[1].click();console.log(\$('li[data-control=\"next\"]').find('.page-link').eq(1).parent().hasClass('disabled')+''+\$('.icon.fa.fa-circle-o-notch.fa-spin.fa-fw:visible').length)});"+ "})()")
+                }
+            })
+
+            return super.shouldInterceptRequest(view, request)
+        }
+
         override fun onPageFinished(view: WebView?, url: String?) {
             if (view != null) {
-                if(!current.equals("0"))mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
+                if(!current.equals("0")&& mywebView.url.equals("https://wsdmoodle.waseda.jp/my/"))mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
             }
         }
 
@@ -81,7 +103,7 @@ class Browser : AppCompatActivity(){
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
             super.doUpdateVisitedHistory(view, url, isReload)
 
-            Log.d("TEST", "activity.webView.url:" + activity.webView.url)
+           // Log.d("TEST", "activity.webView.url:" + activity.webView.url)
 
             // *** ここでクリックイベントを補足して任意の処理を実行させる *** //
         }
@@ -157,31 +179,49 @@ class Browser : AppCompatActivity(){
             return true
         }
 
-        var xhrnum = 0
-        var last = "false"
 
         // console.log を Logcat に表示させます
         override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
             if (consoleMessage != null) {
-                Log.d(
-                    "TEST",
-                    "[" + consoleMessage.messageLevel() + "] " + consoleMessage.message() + " - " + consoleMessage.sourceId() + "：" + consoleMessage.lineNumber() + "行目"
-                )
+                //Log.d( "TEST", "[" + consoleMessage.messageLevel() + "] " + consoleMessage.message() + " - " + consoleMessage.sourceId() + "：" + consoleMessage.lineNumber() + "行目" )
                 current = consoleMessage.message()
-                if(!current.equals("0"))mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
-                else if(current.equals("0")&&!last.equals("true")){
-                    Log.d("Clicked","clicked")
-                    mywebView.loadUrl("javascript:(function() { " +"console.log(\$('.w-25.bg-pulse-grey:visible').length);"+ "})()")
-                    mywebView.loadUrl("javascript:(function() { " +"console.log(\$('li[data-control=\"next\"]').find('.page-link').eq(1).parent().hasClass('disabled'));"+ "})()")
-                    mywebView.loadUrl("javascript:(function() { " +"\$('li[data-control=\"next\"]').find('.page-link')[1].click()"+ "})()")
-                }else if(current.equals("true")){
-                    last = "true"
-                }
+                if(current.equals("true0")&&!finished){
+                    finished = true
+                    Timer("SettingUp", false).schedule(1000) {
+                        mywebView?.post(Runnable {
+                            mywebView.loadUrl("javascript:(function() { window.HtmlViewer.showHTML" + "('<html>'+document.getElementsByTagName('html')[0].innerHTML+'</html>');"+ "})()")
+                        })
 
+                    }
+
+                }
             }
             return super.onConsoleMessage(consoleMessage)
         }
     }
 
 
+    class MyJavaScriptInterface {
+
+        lateinit var ctx: Context
+
+        constructor(ctx: Context) {
+            this.ctx = ctx
+        }
+
+        @JavascriptInterface
+        public fun showHTML(html: String) {
+            val doc:Document  = Jsoup.parse(html)
+            val kadaidoc:Elements = doc.select(".border-bottom.pb-2")
+            val day: Elements = kadaidoc.select(".event-name.text-truncate.mb-0")
+            Log.d("html",day.size.toString())
+
+        }
+    }
+
+    /*
+    $('HTML').bind('DOMSubtreeModified', function() {
+    $('li[data-control="next"]').find('.page-link')[1].click();
+});
+     */
 }
